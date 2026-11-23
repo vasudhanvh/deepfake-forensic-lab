@@ -310,8 +310,13 @@ with st.sidebar:
         f"Backbone 2: ResNet-34 (Eyes 96x96)\n"
         f"Backbone 3: Spec-CNN (2D-DCT 128x128)\n"
         f"Fusion: Adaptive Gated Tri-Branch\n"
-        f"Val AUC: {config.get('training', {}).get('val_auc', 0.9557):.4f}\n"
-        f"Val Acc: {config.get('training', {}).get('val_accuracy_at_threshold', 0.8893)*100:.2f}%",
+        f"Parameters: 32.51M (EMA Best Checkpoint)\n"
+        f"─────────────────────────────\n"
+        f"Train Acc:  95.63% (AUC: 0.9903)\n"
+        f"Val AUC:    95.57% (Peak Discrimination)\n"
+        f"Val Acc:    88.93% (Balanced @ 0.8388)\n"
+        f"  ├─ Real Recall: 89.37%\n"
+        f"  └─ Fake Recall: 88.50%",
         language="yaml"
     )
     
