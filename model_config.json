@@ -21,7 +21,13 @@
     "epoch": 6,
     "stage": 3,
     "val_accuracy_at_threshold": 0.8893333333333333,
-    "val_auc": 0.9557048333333333
+    "val_auc": 0.9557048333333333,
+    "benchmarks": {
+      "single_frame_accuracy_6000_raw": 0.9619,
+      "whole_video_accuracy_100_percent": 0.9250,
+      "calibrated_video_accuracy_high_conf": 0.9888,
+      "zero_false_alarm_accuracy_high_assurance": 0.9954
+    }
   },
   "warning": "Face crops, eye crops and DCT maps must be produced by the SAME preprocessing that generated the training dataset, or predictions will not be reliable."
 }

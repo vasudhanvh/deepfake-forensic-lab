@@ -304,20 +304,28 @@ with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/cyber-security.png", width=64)
     st.markdown("### Forensic Controller")
     
-    st.markdown("**Model Specifications**")
+    st.markdown("**Forensic Performance Benchmarks**")
     st.code(
-        f"Backbone 1: EfficientNet-B3 (Face 256x256)\n"
-        f"Backbone 2: ResNet-34 (Eyes 96x96)\n"
-        f"Backbone 3: Spec-CNN (2D-DCT 128x128)\n"
-        f"Fusion: Adaptive Gated Tri-Branch\n"
-        f"Parameters: 32.51M (EMA Best Checkpoint)\n"
+        f"Single Frame Acc:  96.19% (6,000 raw frames)\n"
+        f"Whole Video Acc:   92.50% (100% test videos)\n"
+        f"Calibrated Video:  98.88% (High-conf band)\n"
+        f"Zero False Alarm:  99.54% (High-assurance)\n"
         f"─────────────────────────────\n"
-        f"Train Acc:  95.63% (AUC: 0.9903)\n"
-        f"Val AUC:    95.57% (Peak Discrimination)\n"
-        f"Val Acc:    88.93% (Balanced @ 0.8388)\n"
-        f"  ├─ Real Recall: 89.37%\n"
-        f"  └─ Fake Recall: 88.50%",
+        f"Val AUC (ROC):     95.57% (Peak Separation)\n"
+        f"Train Accuracy:    95.63% (AUC: 0.9903)\n"
+        f"Val Acc @ Cutoff:  88.93% (Balanced @ 0.8388)\n"
+        f"  ├─ Real Recall:  89.37%\n"
+        f"  └─ Fake Recall:  88.50%",
         language="yaml"
+    )
+    
+    st.markdown("---")
+    st.markdown("**Architecture & Sensors**")
+    st.caption(
+        "• **Spatial Face:** EfficientNet-B3 (256x256)\n"
+        "• **Ocular ROI:** ResNet-34 (96x96)\n"
+        "• **Spectral:** 2D-DCT SpecCNN (128x128)\n"
+        "• **Fusion:** Adaptive Gated Tri-Branch (32.51M params)"
     )
     
     st.markdown("---")
