@@ -1,0 +1,7 @@
+# Git LFS attributes for Deepfake Detector
+# Automatically track binary model weights and serialized checkpoints
+detector_weights.pth filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.onnx filter=lfs diff=lfs merge=lfs -text
