@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deepfake Forensic Intelligence Lab | Vercel Portal</title>
+  <link rel="icon" href="https://img.icons8.com/fluency/96/cyber-security.png">
+  <style>
+    :root {
+      --bg-dark: #070a12;
+      --card-bg: #0f172a;
+      --border-color: #1e293b;
+      --accent-cyan: #00e5ff;
+      --accent-purple: #7000ff;
+      --accent-pink: #ff007a;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top Navigation Bar */
+    header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      z-index: 100;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(90deg, var(--accent-cyan), #a855f7, var(--accent-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-badge {
+      font-size: 0.7rem;
+      background: rgba(0, 229, 255, 0.12);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* Endpoint Config Bar */
+    .endpoint-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .endpoint-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .endpoint-input {
+      background: #020617;
+      border: 1px solid var(--border-color);
+      color: #38bdf8;
+      font-family: monospace;
+      font-size: 0.82rem;
+      padding: 6px 12px;
+      border-radius: 6px;
+      width: 320px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .endpoint-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .btn {
+      background: #1e293b;
+      color: #f1f5f9;
+      border: 1px solid #334155;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: #334155;
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .btn-preset {
+      font-size: 0.72rem;
+      padding: 4px 8px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      color: #94a3b8;
+    }
+
+    .btn-preset:hover {
+      color: #fff;
+      border-color: #64748b;
+    }
+
+    /* Main Container & Iframe */
+    main {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 64px);
+      background: #070a12;
+    }
+
+    #app-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: #0b0f19;
+    }
+
+    /* Loading Overlay */
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #070a12;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 50;
+      transition: opacity 0.4s ease;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(0, 229, 255, 0.15);
+      border-top-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+
+    /* Fallback / Guidance Banner */
+    #help-drawer {
+      display: none;
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px 20px;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      font-size: 0.85rem;
+      z-index: 90;
+    }
+
+    #help-drawer h4 {
+      color: var(--accent-cyan);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #help-drawer p {
+      color: #cbd5e1;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+
+    #help-drawer a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-section">
+      <img src="https://img.icons8.com/fluency/96/cyber-security.png" alt="Forensic Logo" class="brand-logo">
+      <div>
+        <div class="brand-title">Deepfake Forensic Intelligence Lab</div>
+        <div style="font-size: 0.7rem; color: #64748b;">Tri-Branch Adaptive Gated Architecture (EfficientNet-B3 • ResNet-34 • 2D-DCT)</div>
+      </div>
+      <span class="brand-badge">Vercel Cloud Edge</span>
+    </div>
+
+    <div class="endpoint-control">
+      <span class="endpoint-label">Backend Stream:</span>
+      <input type="text" id="endpoint-url" class="endpoint-input" placeholder="https://your-streamlit-app.streamlit.app">
+      <button class="btn" onclick="updateIframe()">Connect</button>
+      <button class="btn-preset" onclick="setPreset('http://localhost:8501')">Local (8501)</button>
+      <button class="btn-preset" onclick="toggleHelp()">Help</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Connecting to Deepfake Forensic Engine...</div>
+    </div>
+    
+    <iframe
+      id="app-frame"
+      src=""
+      allow="camera *; microphone *; display-capture *"
+      allowfullscreen>
+    </iframe>
+
+    <div id="help-drawer">
+      <h4>
+        <span>🌐 Cloud Backend Setup</span>
+        <span style="cursor:pointer;" onclick="toggleHelp()">✕</span>
+      </h4>
+      <p>
+        Because PyTorch models (132.7 MB) require a persistent stateful Python runtime, the detector backend runs on 
+        <strong>Streamlit Community Cloud</strong> or <strong>Hugging Face Spaces</strong>, while Vercel serves this production portal.
+      </p>
+      <p>
+        Deploy your backend repository to Streamlit Cloud in 1 minute, copy your app URL (e.g., <code>https://your-app.streamlit.app</code>), paste it in the box above, and click <strong>Connect</strong>.
+      </p>
+    </div>
+  </main>
+
+  <script>
+    const defaultEndpoint = "http://localhost:8501";
+    const iframe = document.getElementById("app-frame");
+    const input = document.getElementById("endpoint-url");
+    const overlay = document.getElementById("loading-overlay");
+
+    // Load saved or default endpoint
+    const savedUrl = localStorage.getItem("forensic_backend_url") || defaultEndpoint;
+    input.value = savedUrl;
+    loadEndpoint(savedUrl);
+
+    function loadEndpoint(url) {
+      overlay.style.display = "flex";
+      overlay.style.opacity = "1";
+      
+      // Ensure embed parameters
+      let target = url.trim();
+      if (!target.includes("?")) {
+        target += "?embed=true&embed_options=show_colored_line,show_padding";
+      } else if (!target.includes("embed=true")) {
+        target += "&embed=true";
+      }
+      
+      iframe.src = target;
+      localStorage.setItem("forensic_backend_url", url);
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          overlay.style.opacity = "0";
+          setTimeout(() => { overlay.style.display = "none"; }, 400);
+        }, 500);
+      };
+    }
+
+    function updateIframe() {
+      if (input.value) {
+        loadEndpoint(input.value);
+      }
+    }
+
+    function setPreset(url) {
+      input.value = url;
+      loadEndpoint(url);
+    }
+
+    function toggleHelp() {
+      const drawer = document.getElementById("help-drawer");
+      drawer.style.display = drawer.style.display === "block" ? "none" : "block";
+    }
+  </script>
+</body>
+</html>

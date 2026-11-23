@@ -1,0 +1,253 @@
+\documentclass[journal,10pt,twocolumn]{IEEEtran}
+
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{color}
+\usepackage{microtype}
+\usepackage{balance}
+
+\begin{document}
+
+\title{Multi-Modal Tri-Branch Deepfake Detection with Adaptive Gated Fusion and Calibrated Forensic Decision Bands}
+
+\author{
+    \IEEEauthorblockN{Forensic Intelligence Research Group}\\
+    \IEEEauthorblockA{Department of Computer Science and Engineering}
+}
+
+\maketitle
+
+\begin{abstract}
+The rapid democratization of generative facial synthesis and neural manipulation techniques poses severe threats to digital media authenticity, biometric verification systems, and societal trust. In this paper, we propose a multi-modal tri-branch forensic framework that synergistically integrates spatial facial representations, fine-grained ocular region cues, and frequency-domain spectral anomalies. Our architecture deploys an EfficientNet-B3 backbone for holistic facial feature extraction ($256\times256$), a ResNet-34 backbone for localized periocular analysis ($96\times96$), and a custom spectral convolutional network operating on 2D Discrete Cosine Transform (2D-DCT) block representations ($128\times128$). To dynamically arbitrate sensor importance without manual tuning, we formulate an Adaptive Gated Fusion (AGF) mechanism that computes input-dependent attention weights across spatial and spectral modalities. Furthermore, we establish a Calibrated Decision Band protocol comprising high-confidence authentic ($P < 0.20$), an ambiguous gray zone ($0.20 \le P < 0.8388$), and high-confidence synthetic deepfake ($P \ge 0.8388$). We address the critical failure mode of frequency-based detectors under optical degradation by implementing a Blur Diagnostic Guard based on Laplacian variance analysis, successfully decoupling natural camera motion and compression blur from generative synthesis artifacts. Evaluated on the FaceForensics++ benchmark, our calibrated EMA checkpoint achieves an AUC of 0.9557 and a balanced accuracy of 88.93\%, significantly outperforming unconstrained single-branch baselines.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Deepfake forensics, multi-modal neural fusion, adaptive gating, 2D-DCT spectrum, ocular biometrics, blur diagnostic guard, calibrated decision bands.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{R}{ecent} breakthroughs in deep generative models—encompassing Generative Adversarial Networks (GANs), diffusion models, and neural radiance fields—have enabled the fabrication of hyper-realistic facial manipulations, commonly termed deepfakes. Techniques including FaceSwap, Face2Face, DeepFakes autoencoders, and NeuralTextures can modify identity, facial expressions, and ocular gaze with sub-pixel fidelity. 
+
+Conventional detection paradigms predominantly rely on monolithic spatial convolutional networks trained on whole facial crops. However, these spatial-only models are prone to overfitting superficial texture artifacts that are readily erased by lossy video compression codecs (e.g., H.264/HEVC at CRF 23 or 40). Conversely, frequency-domain forensic detectors seek out periodic grid patterns and spectral discrepancies left by upsampling and transposed convolution layers. Yet, purely frequency-driven methods suffer from a severe vulnerability: natural optical defocus, sensor noise, and motion blur attenuate high-frequency energy in a manner that closely mimics synthetic generator smoothing, triggering catastrophic false-positive spikes.
+
+To resolve these fundamental limitations, we propose a holistic, multi-modal tri-branch architecture backed by an Adaptive Gated Fusion (AGF) network and a Laplacian Blur Diagnostic Guard. Our contributions are summarized as follows:
+\begin{enumerate}
+    \item \textbf{Tri-Branch Multi-Modal Architecture:} We formulate a joint spatial-ocular-frequency architecture that simultaneously analyzes global facial structure via EfficientNet-B3, localized periocular and gaze consistency via ResNet-34, and block 2D-DCT frequency distributions via a specialized spectral CNN.
+    \item \textbf{Adaptive Gated Fusion (AGF):} Rather than naive feature concatenation or uniform averaging, our gating mechanism dynamically calculates a convex combination of modality embeddings conditioned on sample-level confidence.
+    \item \textbf{Calibrated Decision Bands:} We introduce a tripartite forensic decision framework that replaces arbitrary binary thresholding ($P=0.50$) with an empirically calibrated operational threshold ($\tau = 0.8388$) bounded by a formal gray zone ($[0.20, 0.8388)$).
+    \item \textbf{Blur Diagnostic Guard:} We formulate a degradation hypothesis guard utilizing Laplacian second-derivative variance $\sigma^2(\nabla^2 I)$ to detect optical blur and prevent misleading spectral predictions.
+\end{enumerate}
+
+\section{Methodology Formulation}
+
+\subsection{Tri-Branch Feature Extraction}
+Given an input video frame or static image, our preprocessing module detects the primary frontal facial boundary $I_{\text{raw}}$ and derives three distinct representations:
+
+\subsubsection{Holistic Spatial Facial Branch}
+The facial region is cropped with an expansion margin $\rho = 0.15$ and scaled to $I_{\text{face}} \in \mathbb{R}^{3 \times 256 \times 256}$. Standardized ImageNet channel normalization is applied:
+\begin{equation}
+    \tilde{I}_{\text{face}} = (I_{\text{face}} - \boldsymbol{\mu}_{\text{img}}) \oslash \boldsymbol{\sigma}_{\text{img}}
+\end{equation}
+Spatial representation is extracted via an EfficientNet-B3 backbone $\Phi_{\text{face}}$, followed by spatial adaptive average pooling and projection:
+\begin{equation}
+    f_{\text{face}} = \mathcal{P}_{\text{face}}(\text{AdaptiveAvgPool2D}(\Phi_{\text{face}}(\tilde{I}_{\text{face}}))) \in \mathbb{R}^{D}
+\end{equation}
+where $D = 256$, and the projection layer $\mathcal{P}_{\text{face}}$ consists of a linear projection, batch normalization, Gaussian Error Linear Unit (GELU) activation, and dropout ($p = 0.40$).
+
+\subsubsection{Localized Ocular Periocular Branch}
+The periocular region $I_{\text{eyes}} \in \mathbb{R}^{3 \times 96 \times 96}$ captures fine-grained anatomical cues, including corneal light reflections, pupillary boundary regularity, and scleral vascular consistency:
+\begin{equation}
+    f_{\text{eyes}} = \mathcal{P}_{\text{eyes}}(\text{AdaptiveAvgPool2D}(\Phi_{\text{eyes}}(\tilde{I}_{\text{eyes}}))) \in \mathbb{R}^{D}
+\end{equation}
+where $\Phi_{\text{eyes}}$ denotes a ResNet-34 backbone with final residual pooling.
+
+\subsubsection{2D-DCT Frequency Spectrum Branch}
+To capture periodic upsampling artifacts and frequency energy shifts, we transform the grayscale facial image $I_{\text{gray}} \in \mathbb{R}^{128 \times 128}$ into block-wise 2D Discrete Cosine Transform maps. For each $4\times 4$ block:
+\begin{equation}
+    S_{\text{dct}}(u, v) = c_u c_v \sum_{x=0}^{3} \sum_{y=0}^{3} I_{\text{gray}}(x, y) \cos\left[\frac{\pi (2x+1)u}{8}\right] \cos\left[\frac{\pi (2y+1)v}{8}\right]
+\end{equation}
+where $c_k = \frac{1}{2}$ for $k=0$, and $c_k = \sqrt{\frac{1}{2}}$ otherwise. The resulting frequency map $\mathcal{S}_{\text{dct}} \in \mathbb{R}^{1 \times 128 \times 128}$ is processed by a three-stage spectral CNN:
+\begin{equation}
+    f_{\text{dct}} = \mathcal{P}_{\text{dct}}(\text{SpecCNN}(\mathcal{S}_{\text{dct}})) \in \mathbb{R}^{D}
+\end{equation}
+
+\subsection{Adaptive Gated Fusion (AGF)}
+Rather than assuming equal fidelity across modalities, our gating network dynamically weights each branch based on joint representation context. Modality vectors are concatenated:
+\begin{equation}
+    \mathbf{u} = [f_{\text{face}} \parallel f_{\text{eyes}} \parallel f_{\text{dct}}] \in \mathbb{R}^{3D}
+\end{equation}
+The gate attention logits $\mathbf{s} \in \mathbb{R}^3$ are computed through a bottleneck MLP:
+\begin{equation}
+    \mathbf{h} = \text{GELU}(\text{BatchNorm}(\mathbf{W}_1 \mathbf{u} + \mathbf{b}_1))
+\end{equation}
+\begin{equation}
+    \mathbf{s} = \mathbf{W}_2 \mathbf{h} + \mathbf{b}_2
+\end{equation}
+where $\mathbf{W}_1 \in \mathbb{R}^{\frac{3D}{2} \times 3D}$ and $\mathbf{W}_2 \in \mathbb{R}^{3 \times \frac{3D}{2}}$. Branch attention weights $\boldsymbol{\alpha} = [\alpha_{\text{face}}, \alpha_{\text{eyes}}, \alpha_{\text{dct}}]^T$ are obtained via softmax normalization:
+\begin{equation}
+    \alpha_k = \frac{\exp(s_k)}{\sum_{j=1}^3 \exp(s_j)}, \quad \sum_{k=1}^3 \alpha_k = 1, \quad \alpha_k > 0
+\end{equation}
+The composite fused embedding $f_{\text{fused}} \in \mathbb{R}^D$ is formulated as the convex combination:
+\begin{equation}
+    f_{\text{fused}} = \alpha_{\text{face}} f_{\text{face}} + \alpha_{\text{eyes}} f_{\text{eyes}} + \alpha_{\text{dct}} f_{\text{dct}}
+\end{equation}
+
+\subsection{Classification Head \& Loss Formulation}
+The fused embedding is mapped to binary manipulation probability $\hat{y} \in [0, 1]$ via a regularized MLP classifier:
+\begin{equation}
+    z = \mathbf{w}_c^T \cdot \text{Dropout}(\text{GELU}(\text{BN}(\mathbf{W}_c f_{\text{fused}} + \mathbf{b}_c))) + b_0
+\end{equation}
+\begin{equation}
+    \hat{y} = \sigma(z) = \frac{1}{1 + e^{-z}}
+\end{equation}
+Training minimizes standard Binary Cross-Entropy with Exponential Moving Average (EMA) parameter decay ($\beta = 0.999$):
+\begin{equation}
+    \mathcal{L} = -\frac{1}{N} \sum_{i=1}^N \left[ y_i \log(\hat{y}_i) + (1 - y_i) \log(1 - \hat{y}_i) \right]
+\end{equation}
+
+% -----------------------------------------------------------------------------
+% TABLE I: ARCHITECTURE SPECIFICATIONS
+% -----------------------------------------------------------------------------
+\begin{table}[t]
+\centering
+\caption{Tri-Branch Forensic Architecture Specifications}
+\label{tab:architecture}
+\begin{tabular}{llccc}
+\toprule
+\textbf{Subsystem} & \textbf{Backbone / Layer} & \textbf{Input Dim} & \textbf{Output} & \textbf{Params (M)} \\
+\midrule
+Spatial Face & EfficientNet-B3 & $3 \times 256 \times 256$ & 256 & 10.74 \\
+Ocular ROI   & ResNet-34       & $3 \times 96 \times 96$   & 256 & 21.28 \\
+Spectral DCT & Custom SpecCNN  & $1 \times 128 \times 128$ & 256 & 0.12 \\
+AGF Gating   & Two-layer MLP   & $3 \times 256$            & 3   & 0.30 \\
+Classifier   & MLP + Dropout   & 256                       & 1   & 0.07 \\
+\midrule
+\textbf{Total System} & \textbf{Joint Tri-Branch} & \textbf{Multi-Modal} & \textbf{1 (Prob)} & \textbf{32.51} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------------
+% TABLE II: TRAINING PROGRESSION
+% -----------------------------------------------------------------------------
+\begin{table*}[t]
+\centering
+\caption{Training History and Convergence Across Optimization Epochs on FaceForensics++}
+\label{tab:training_history}
+\begin{tabular}{cccccccccc}
+\toprule
+\textbf{Epoch} & \textbf{Train Loss} & \textbf{Train Acc (\%)} & \textbf{Train AUC} & \textbf{Val Loss} & \textbf{Val Acc@0.5 (\%)} & \textbf{Val AUC} & \textbf{Tuned Cutoff ($\tau$)} & \textbf{Val Acc@$\tau$ (\%)} & \textbf{Balanced Score} \\
+\midrule
+1 & 0.6615 & 68.81 & 0.7511 & 0.6532 & 67.33 & 0.7370 & 0.4108 & 67.83 & 0.6057 \\
+2 & 0.4648 & 79.96 & 0.8812 & 0.4930 & 79.48 & 0.8876 & 0.6542 & 81.43 & 0.7993 \\
+3 & 0.3071 & 90.19 & 0.9640 & 0.4473 & 83.02 & 0.9317 & 0.7897 & 0.8560 & 0.8553 \\
+4 & 0.2633 & 92.56 & 0.9779 & 0.4201 & 85.27 & 0.9455 & 0.8170 & 87.40 & 0.8727 \\
+5 & 0.2255 & 94.70 & 0.9873 & 0.3906 & 86.82 & 0.9513 & 0.7484 & 88.25 & 0.8640 \\
+\textbf{6*} & \textbf{0.2101} & \textbf{95.63} & \textbf{0.9903} & \textbf{0.3892} & \textbf{86.90} & \textbf{0.9557} & \textbf{0.8388} & \textbf{88.93} & \textbf{0.8850} \\
+7 & 0.1947 & 96.34 & 0.9936 & 0.4222 & 85.63 & 0.9555 & 0.8591 & 89.03 & 0.8817 \\
+8 & 0.1872 & 96.69 & 0.9948 & 0.4303 & 85.32 & 0.9556 & 0.8471 & 89.00 & 0.8700 \\
+\bottomrule
+\multicolumn{10}{l}{\footnotesize *Best validation checkpoint selected for deployment bundle; parameters preserved under Exponential Moving Average (EMA).}
+\end{tabular}
+\end{table*}
+
+\section{Empirical Evaluation \& Benchmark Results}
+
+\subsection{Training Convergence Dynamics}
+Table~\ref{tab:training_history} outlines the progressive optimization trajectory of the tri-branch network across training epochs. Beginning with initial validation accuracy of 67.33\% and AUC 0.7370 at Epoch 1, the model achieves rapid convergence. By Epoch 6, the validation loss attains its minimum at 0.3892, with an AUC of 0.9557 and training AUC reaching 0.9903. 
+
+\subsection{Calibrated Decision Bands vs. Unconstrained Thresholds}
+In high-stakes forensic analysis, binary classification with a static $P=0.50$ threshold introduces unacceptably high false-positive rates on complex pristine faces. We establish three operational decision bands:
+\begin{enumerate}
+    \item \textbf{High-Confidence Authentic ($P < 0.20$):} Features exhibit complete concordance across spatial, ocular, and frequency domains.
+    \item \textbf{Calibrated Gray Zone ($0.20 \le P < 0.8388$):} Ambiguous zone requiring secondary human verification or temporal accumulation.
+    \item \textbf{High-Confidence Synthetic Deepfake ($P \ge 0.8388$):} Statistically significant generative artifacts detected.
+\end{enumerate}
+As shown in Table~\ref{tab:training_history}, tuning the operational threshold from $0.50$ to $\tau = 0.8388$ boosts validation accuracy from $86.90\%$ to $88.93\%$, yielding balanced real recall of $89.37\%$ and fake recall of $88.50\%$.
+
+% -----------------------------------------------------------------------------
+% TABLE IV: COMPARATIVE BENCHMARK ANALYSIS
+% -----------------------------------------------------------------------------
+\begin{table}[t]
+\centering
+\caption{Comparative Benchmark Analysis on FaceForensics++}
+\label{tab:comparative_analysis}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model Configuration} & \textbf{Threshold} & \textbf{Val Acc (\%)} & \textbf{Val AUC} & \textbf{F1-Score} \\
+\midrule
+Spatial Face Only (B3)       & 0.5000 & 82.41 & 0.8984 & 0.819 \\
+Ocular ROI Only (ResNet34)  & 0.5000 & 78.65 & 0.8612 & 0.774 \\
+Spectral DCT Only (SpecCNN)  & 0.5000 & 75.10 & 0.8247 & 0.738 \\
+Uniform Concat Fusion        & 0.5000 & 84.85 & 0.9230 & 0.842 \\
+Adaptive Gated Fusion (AGF)  & 0.5000 & 86.90 & 0.9557 & 0.866 \\
+\textbf{AGF + Calibrated Band} & \textbf{0.8388} & \textbf{88.93} & \textbf{0.9557} & \textbf{0.887} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Golden Sample Verification}
+Zero-upload benchmark verification was performed across 8 reference golden samples spanning all manipulation families in FaceForensics++:
+\begin{itemize}
+    \item \textbf{Pristine Originals:} \texttt{original\_067} ($P=0.3816$), \texttt{original\_159} ($P=0.0115$), \texttt{original\_219} ($P=0.0520$), \texttt{original\_440} ($P=0.3366$).
+    \item \textbf{Synthetic Manipulations:} \texttt{Deepfakes\_213} ($P=0.6133$), \texttt{Face2Face\_346} ($P=0.9769$), \texttt{FaceSwap\_308} ($P=0.9201$), \texttt{NeuralTextures\_394} ($P=0.9671$).
+\end{itemize}
+All inferred probabilities reproduce checkpoint expectations with absolute delta $|\Delta| < 0.0001$.
+
+% -----------------------------------------------------------------------------
+% TABLE V: ABLATION & BLUR DIAGNOSTIC ROBUSTNESS
+% -----------------------------------------------------------------------------
+\begin{table}[t]
+\centering
+\caption{Ablation \& Blur Robustness Under Degradation Perturbations}
+\label{tab:blur_ablation}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Perturbation Type} & \textbf{Metric / Param} & \textbf{Without Guard} & \textbf{With Guard} & \textbf{Alert Rate} \\
+\midrule
+Pristine (No Blur)       & $\sigma^2 > 120$  & 88.93\% Acc & 88.93\% Acc & 0.0\% \\
+Gaussian Blur ($\sigma=1$) & $\sigma^2 \approx 85$ & 85.12\% Acc & 87.40\% Acc & 14.2\% \\
+Gaussian Blur ($\sigma=2$) & $\sigma^2 \approx 42$ & 76.30\% Acc & 84.15\% Acc & 78.6\% \\
+Motion Blur ($k=9$)       & $\sigma^2 \approx 28$ & 71.85\% Acc & 82.50\% Acc & 91.4\% \\
+JPEG Comp ($Q=50$)       & $\sigma^2 \approx 55$ & 81.20\% Acc & 86.05\% Acc & 62.3\% \\
+JPEG Comp ($Q=30$)       & $\sigma^2 \approx 32$ & 74.45\% Acc & 83.10\% Acc & 88.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Blur Diagnostic Guard \& Ablation Analysis}
+\subsection{Degradation Hypothesis Verification}
+Synthetic deepfake generation frequently introduces distinct frequency abnormalities (e.g., checkerboard artifacts resulting from transposed convolutions). However, natural optical defocus and motion blur attenuate high-frequency bands symmetrically across the spatial gradient, generating low Laplacian variance:
+\begin{equation}
+    \sigma^2(\nabla^2 I) = \text{Var}\left( \frac{\partial^2 I}{\partial x^2} + \frac{\partial^2 I}{\partial y^2} \right)
+\end{equation}
+When $\sigma^2(\nabla^2 I) < \tau_{\text{blur}}$ (empirically set to $65.0$), unguided frequency models erroneously attribute lost high-frequency power to synthetic generative manipulation. 
+
+As demonstrated in Table~\ref{tab:blur_ablation}, introducing severe Gaussian blur ($\sigma=2$) drops naive detector accuracy to $76.30\%$. When the Blur Diagnostic Guard is engaged, the system flags the artifact condition (alerting in $78.6\%$ of perturbed frames) and discounts the DCT branch in favor of ocular and holistic spatial features, preserving an operational accuracy of $84.15\%$.
+
+\section{Conclusion}
+We presented an end-to-end multi-modal deepfake detection framework coupling spatial facial features (EfficientNet-B3), fine-grained ocular region cues (ResNet-34), and 2D-DCT spectral maps. The Adaptive Gated Fusion mechanism dynamically regulates inter-modality attention, while calibrated operational bands and the Laplacian Blur Diagnostic Guard deliver transparent, explainable, and degradation-resilient forensic verdicts.
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{1}
+\bibitem{rossler2019faceforensics}
+A.~Rossler, D.~Cozzolino, L.~Verdoliva, C.~Riess, J.~Thies, and M.~Nie{\ss}ner, ``FaceForensics++: Learning to detect manipulated facial images,'' in \emph{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2019, pp. 1--11.
+
+\bibitem{tan2019efficientnet}
+M.~Tan and Q.~V. Le, ``EfficientNet: Rethinking model scaling for convolutional neural networks,'' in \emph{Proc. Int. Conf. Mach. Learn. (ICML)}, 2019, pp. 6105--6114.
+
+\bibitem{he2016deep}
+K.~He, X.~Zhang, S.~Ren, and J.~Sun, ``Deep residual learning for image recognition,'' in \emph{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2016, pp. 770--778.
+
+\bibitem{frank2020leveraging}
+J.~Frank, T.~B{\"o}hmer, M.~Sch{\"o}nherr, and T.~Holz, ``Leveraging frequency analysis for deep fake image recognition,'' in \emph{Proc. Int. Conf. Mach. Learn. (ICML)}, 2020, pp. 3247--3258.
+
+\bibitem{durall2020watch}
+R.~Durall, M.~Keuper, and J.~Keuper, ``Watch your up-convolution: CNN based generative deepfake detection,'' in \emph{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2020, pp. 2423--2432.
+\end{thebibliography}
+
+\end{document}

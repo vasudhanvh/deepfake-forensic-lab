@@ -1,0 +1,27 @@
+{
+  "weights_file": "detector_weights.pth",
+  "weights_are": "EMA weights from the best checkpoint",
+  "architecture": {
+    "embed_dim": 256,
+    "num_classes": 1,
+    "dropout": 0.4
+  },
+  "threshold": 0.8388118147850037,
+  "label_map": {
+    "REAL": 0,
+    "FAKE": 1
+  },
+  "output": "sigmoid(logit) = probability FAKE; predict FAKE when prob >= threshold",
+  "inputs": {
+    "face": "RGB 256x256, float32 in [0,1], shape (N,3,256,256); ImageNet normalization is inside the model",
+    "eyes": "RGB 96x96, float32 in [0,1], shape (N,3,96,96); ImageNet normalization is inside the model",
+    "dct": "float32 map 128x128, shape (N,1,128,128); same values as the dataset .npy files"
+  },
+  "training": {
+    "epoch": 6,
+    "stage": 3,
+    "val_accuracy_at_threshold": 0.8893333333333333,
+    "val_auc": 0.9557048333333333
+  },
+  "warning": "Face crops, eye crops and DCT maps must be produced by the SAME preprocessing that generated the training dataset, or predictions will not be reliable."
+}

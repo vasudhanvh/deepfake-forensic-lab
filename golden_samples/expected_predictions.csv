@@ -1,0 +1,9 @@
+sample_id,label,prob_fake,pred_at_threshold
+original_067_000202,0,0.3816,0
+original_159_000084,0,0.0115,0
+original_219_000024,0,0.052,0
+original_440_000107,0,0.3366,0
+Deepfakes_213_083_000161,1,0.6133,0
+Face2Face_346_351_000056,1,0.9769,1
+FaceSwap_308_388_000318,1,0.9201,1
+NeuralTextures_394_373_000232,1,0.9671,1

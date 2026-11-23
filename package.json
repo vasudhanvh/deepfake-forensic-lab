@@ -1,0 +1,13 @@
+{
+  "name": "deepfake-forensic-vercel-portal",
+  "version": "2.0.0",
+  "description": "Vercel Production Portal for Multi-Modal Deepfake Forensic Intelligence Hub",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve public",
+    "deploy": "npx vercel --prod"
+  },
+  "keywords": ["deepfake", "forensics", "streamlit", "vercel", "ai-detection"],
+  "author": "Forensic Intelligence Lab",
+  "license": "MIT"
+}
