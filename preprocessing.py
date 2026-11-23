@@ -12,12 +12,49 @@ import numpy as np
 import torch
 from typing import Tuple, Dict, Any, Optional
 
-# Load Haar cascades from OpenCV built-in data
-FACE_CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-EYE_CASCADE_PATH = cv2.data.haarcascades + "haarcascade_eye.xml"
+import os
+from pathlib import Path
 
-face_cascade = cv2.CascadeClassifier(FACE_CASCADE_PATH)
-eye_cascade = cv2.CascadeClassifier(EYE_CASCADE_PATH)
+BASE_DIR = Path(__file__).resolve().parent
+LOCAL_CASCADES_DIR = BASE_DIR / "haarcascades"
+
+
+def _find_cascade(filename: str) -> Optional[str]:
+    # 1. Prioritize local repository bundled directory
+    local_p = LOCAL_CASCADES_DIR / filename
+    if local_p.is_file():
+        return str(local_p)
+    # 2. Check cv2.data if available
+    try:
+        cv_data = getattr(cv2, "data", None)
+        if cv_data is not None and hasattr(cv_data, "haarcascades"):
+            cv_p = Path(cv_data.haarcascades) / filename
+            if cv_p.is_file():
+                return str(cv_p)
+    except Exception:
+        pass
+    # 3. Standard Linux system directories
+    for sys_dir in ["/usr/share/opencv4/haarcascades", "/usr/share/opencv/haarcascades"]:
+        sys_p = Path(sys_dir) / filename
+        if sys_p.is_file():
+            return str(sys_p)
+    return None
+
+
+def _load_cascade(filename: str) -> Optional[cv2.CascadeClassifier]:
+    p = _find_cascade(filename)
+    if p:
+        try:
+            clf = cv2.CascadeClassifier(p)
+            if not clf.empty():
+                return clf
+        except Exception:
+            pass
+    return None
+
+
+face_cascade = _load_cascade("haarcascade_frontalface_default.xml")
+eye_cascade = _load_cascade("haarcascade_eye.xml")
 
 
 def detect_and_crop_face(
@@ -27,7 +64,7 @@ def detect_and_crop_face(
 ) -> Tuple[np.ndarray, Optional[Tuple[int, int, int, int]]]:
     """
     Detects the primary frontal face in an image and crops with padding.
-    Falls back to center crop if no face is detected.
+    Falls back to center crop if no face is detected or classifier is unavailable.
     Returns:
         cropped_face_bgr (H, W, 3) uint8
         bbox (x, y, w, h) in original image coordinates or None
@@ -35,13 +72,18 @@ def detect_and_crop_face(
     h_orig, w_orig = image_bgr.shape[:2]
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     
-    faces = face_cascade.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=5,
-        minSize=(60, 60),
-        flags=cv2.CASCADE_SCALE_IMAGE
-    )
+    faces = ()
+    if face_cascade is not None and not face_cascade.empty():
+        try:
+            faces = face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(60, 60),
+                flags=cv2.CASCADE_SCALE_IMAGE
+            )
+        except Exception:
+            faces = ()
 
     if len(faces) > 0:
         # Choose the largest detected face
@@ -87,12 +129,17 @@ def extract_eyes_region(
     
     # Restrict eye search to upper 60% of face
     upper_gray = gray[:int(h * 0.6), :]
-    detected_eyes = eye_cascade.detectMultiScale(
-        upper_gray,
-        scaleFactor=1.1,
-        minNeighbors=3,
-        minSize=(20, 20)
-    )
+    detected_eyes = ()
+    if eye_cascade is not None and not eye_cascade.empty():
+        try:
+            detected_eyes = eye_cascade.detectMultiScale(
+                upper_gray,
+                scaleFactor=1.1,
+                minNeighbors=3,
+                minSize=(20, 20)
+            )
+        except Exception:
+            detected_eyes = ()
 
     if len(detected_eyes) >= 2:
         # Sort left-to-right
