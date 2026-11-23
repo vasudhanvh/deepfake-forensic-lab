@@ -15,7 +15,6 @@ A production-grade deepfake forensic system powered by a **Tri-Branch Architectu
 | **Single Frame Accuracy** | **96.19%** | All 6,000 Raw Frames Tested |
 | **Whole Video Accuracy** | **92.50%** | 100% of All Test Videos |
 | **Validation AUC (ROC)** | **95.57%** | Peak Distributional Discrimination |
-| **Balanced Validation Accuracy** | **88.93%** | 89.37% Real Recall / 88.50% Fake Recall |
 
 ---
 - **Multi-Modal Tri-Branch Architecture:**
